@@ -1,0 +1,896 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+###############################################################################
+# If you use PhysiCell in your project, please cite PhysiCell and the version #
+# number, such as below:                                                      #
+#                                                                             #
+# We implemented and solved the model using PhysiCell (Version x.y.z) [1].    #
+#                                                                             #
+# [1] A Ghaffarizadeh, R Heiland, SH Friedman, SM Mumenthaler, and P Macklin, #
+#     PhysiCell: an Open Source Physics-Based Cell Simulator for Multicellu-  #
+#     lar Systems, PLoS Comput. Biol. 14(2): e1005991, 2018                   #
+#     DOI: 10.1371/journal.pcbi.1005991                                       #
+#                                                                             #
+# See VERSION.txt or call get_PhysiCell_version() to get the current version  #
+#     x.y.z. Call display_citations() to get detailed information on all cite-#
+#     able software used in your PhysiCell application.                       #
+#                                                                             #
+# Because PhysiCell extensively uses BioFVM, we suggest you also cite BioFVM  #
+#     as below:                                                               #
+#                                                                             #
+# We implemented and solved the model using PhysiCell (Version x.y.z) [1],    #
+# with BioFVM [2] to solve the transport equations.                           #
+#                                                                             #
+# [1] A Ghaffarizadeh, R Heiland, SH Friedman, SM Mumenthaler, and P Macklin, #
+#     PhysiCell: an Open Source Physics-Based Cell Simulator for Multicellu-  #
+#     lar Systems, PLoS Comput. Biol. 14(2): e1005991, 2018                   #
+#     DOI: 10.1371/journal.pcbi.1005991                                       #
+#                                                                             #
+# [2] A Ghaffarizadeh, SH Friedman, and P Macklin, BioFVM: an efficient para- #
+#     llelized diffusive transport solver for 3-D biological simulations,     #
+#     Bioinformatics 32(8): 1256-8, 2016. DOI: 10.1093/bioinformatics/btv730  #
+#                                                                             #
+###############################################################################
+#                                                                             #
+# BSD 3-Clause License (see https://opensource.org/licenses/BSD-3-Clause)     #
+#                                                                             #
+# Copyright (c) 2015-2018, Paul Macklin and the PhysiCell Project             #
+# All rights reserved.                                                        #
+#                                                                             #
+# Redistribution and use in source and binary forms, with or without          #
+# modification, are permitted provided that the following conditions are met: #
+#                                                                             #
+# 1. Redistributions of source code must retain the above copyright notice,   #
+# this list of conditions and the following disclaimer.                       #
+#                                                                             #
+# 2. Redistributions in binary form must reproduce the above copyright        #
+# notice, this list of conditions and the following disclaimer in the         #
+# documentation and/or other materials provided with the distribution.        #
+#                                                                             #
+# 3. Neither the name of the copyright holder nor the names of its            #
+# contributors may be used to endorse or promote products derived from this   #
+# software without specific prior written permission.                         #
+#                                                                             #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" #
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE   #
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE  #
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE   #
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR         #
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF        #
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS    #
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     #
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)     #
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE  #
+# POSSIBILITY OF SUCH DAMAGE.                                                 #
+#                                                                             #
+###############################################################################
+*/
+--> 
+
+<!--
+<user_details />
+-->
+
+<PhysiCell_settings version="devel-version">
+	<domain>
+		<x_min>-500</x_min>
+		<x_max>500</x_max>
+		<y_min>-500</y_min>
+		<y_max>500</y_max>
+		<z_min>-10</z_min>
+		<z_max>10</z_max>
+		<dx>20</dx>
+		<dy>20</dy>
+		<dz>20</dz>
+		<use_2D>true</use_2D>
+	</domain>
+	
+	<overall>
+		<max_time units="min">7030</max_time> <!-- 8640, 5 days * 24 h * 60 min -->
+		<time_units>min</time_units>
+		<space_units>micron</space_units>
+	
+		<dt_diffusion units="min">0.01</dt_diffusion>
+		<dt_mechanics units="min">0.1</dt_mechanics>
+		<dt_phenotype units="min">6</dt_phenotype>	
+	</overall>
+	
+	<parallel>
+		<omp_num_threads>4</omp_num_threads>
+	</parallel> 
+
+	<options>
+		<legacy_random_points_on_sphere_in_divide>false</legacy_random_points_on_sphere_in_divide>
+	</options>	
+	
+	<save>
+		<folder>output</folder> <!-- use . for root --> 
+
+		<full_data>
+			<interval units="min">60</interval>
+			<enable>true</enable>
+		</full_data>
+		
+		<SVG>
+			<interval units="min">60</interval>
+			<enable>true</enable>
+		</SVG>
+		
+		<legacy_data>
+			<enable>false</enable>
+		</legacy_data>
+	</save>
+	
+	<microenvironment_setup>
+		<variable name="pro-inflammatory cytokine" units="mol/micron^3" ID="3">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">555.56</diffusion_coefficient>
+				<decay_rate units="1/min">1.02e-2</decay_rate>  
+			</physical_parameter_set>
+			<initial_condition units="mol/micron^3">0</initial_condition>
+			<Dirichlet_boundary_condition units="mol/micron^3" enabled="false">0</Dirichlet_boundary_condition>
+		</variable>
+
+		<variable name="ISF" units="mol/micron^3" ID="4">  <!-- copy from sample cancer immnune project-->
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">1000</diffusion_coefficient>
+				<decay_rate units="1/min">0.016</decay_rate>  
+			</physical_parameter_set>
+			<initial_condition units="mol/micron^3">0</initial_condition>
+			<Dirichlet_boundary_condition units="mol/micron^3" enabled="false">0</Dirichlet_boundary_condition>
+		</variable>
+		
+		<variable name="debris" units="mol/micron^3" ID="5">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">555.56</diffusion_coefficient>
+				<decay_rate units="1/min">1.02e-2</decay_rate>  
+			</physical_parameter_set>
+			<initial_condition units="mol/micron^3">0</initial_condition>
+			<Dirichlet_boundary_condition units="mol/micron^3" enabled="false">0</Dirichlet_boundary_condition>
+		</variable>
+		
+		<variable name="Ig" units="mol/micron^3" ID="9">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">6</diffusion_coefficient>  <!-- reduce the diffusion -->
+				<decay_rate units="1/min">0.00139</decay_rate>  
+			</physical_parameter_set>
+			<initial_condition units="mol/micron^3">0</initial_condition>
+			<Dirichlet_boundary_condition units="mol/micron^3" enabled="false">0</Dirichlet_boundary_condition>
+		</variable>
+
+		<variable name="oxygen" units="mmHg" ID="11">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">100000.000000</diffusion_coefficient>
+				<decay_rate units="1/min">0.1</decay_rate>  <!-- 1 for cells  --> 
+			</physical_parameter_set>
+			<initial_condition units="mmHg">38</initial_condition>
+			<Dirichlet_boundary_condition units="mmHg" enabled="true">38</Dirichlet_boundary_condition>
+		</variable>
+		
+		<variable name="Lipid-nanoparticles" units="1/micron^3" ID="12">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">6</diffusion_coefficient>
+				<decay_rate units="1/min">1.6045e-05</decay_rate>  <!-- half-life time is 30 days -->
+			</physical_parameter_set>
+			<initial_condition units="1/micron^3">2</initial_condition>
+			<Dirichlet_boundary_condition units="1/micron^3" enabled="false">2</Dirichlet_boundary_condition>
+		</variable>	
+
+		<variable name="epitope" units="mol/micron^3" ID="13">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">6</diffusion_coefficient>  <!-- small diffusion -->
+				<decay_rate units="1/min">0.00139</decay_rate>  
+			</physical_parameter_set>
+			<initial_condition units="mol/micron^3">0</initial_condition>
+			<Dirichlet_boundary_condition units="mol/micron^3" enabled="false">0</Dirichlet_boundary_condition>
+		</variable>	
+
+		<options>
+			<calculate_gradients>true</calculate_gradients>
+			<track_internalized_substrates_in_each_agent>true</track_internalized_substrates_in_each_agent>
+			<!-- not yet supported --> 
+			<initial_condition type="matlab" enabled="false">
+				<filename>./config/initial.mat</filename>
+			</initial_condition>
+			<!-- not yet supported --> 
+			<dirichlet_nodes type="matlab" enabled="false">
+				<filename>./config/dirichlet.mat</filename>
+			</dirichlet_nodes>
+		</options>
+	</microenvironment_setup>	
+	
+	<cell_definitions>
+		<cell_definition name="default" ID="0">
+			<phenotype>
+				<cycle code="6" name="flow_cytometry_separated_cycle_model">  
+					<!-- using higher than normal significant digits to match divisions in default code -->
+					<phase_transition_rates units="1/min"> 
+						<!-- G0/G1 to S -->
+						<rate start_index="0" end_index="1" fixed_duration="false">0</rate>
+						<!-- 0.00334672 --> 
+						<!-- S to G2 -->
+						<rate start_index="1" end_index="2" fixed_duration="true">0.00208333</rate>
+						<!-- G2 to M -->
+						<rate start_index="2" end_index="3" fixed_duration="true">0.00416667</rate>
+						<!-- M to G0/G1 -->
+						<rate start_index="3" end_index="0" fixed_duration="true">0.0166667</rate>
+					</phase_transition_rates>
+				</cycle>
+				
+				<death>  
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">0</death_rate> <!-- 5.31667e-05 --> 
+						<phase_transition_rates units="1/min">
+							<rate start_index="0" end_index="1" fixed_duration="true">0.00193798</rate>
+						</phase_transition_rates>
+						<parameters>
+							<unlysed_fluid_change_rate units="1/min">0.05</unlysed_fluid_change_rate>
+							<lysed_fluid_change_rate units="1/min">0</lysed_fluid_change_rate>
+							<cytoplasmic_biomass_change_rate units="1/min">1.66667e-02</cytoplasmic_biomass_change_rate>
+							<nuclear_biomass_change_rate units="1/min">5.83333e-03</nuclear_biomass_change_rate>
+							<calcification_rate units="1/min">0</calcification_rate>
+							<relative_rupture_volume units="dimensionless">2.0</relative_rupture_volume>
+						</parameters>
+					</model> 
+
+					<model code="101" name="necrosis">
+						<death_rate units="1/min">0.0</death_rate>
+						<phase_transition_rates units="1/min">
+							<rate start_index="0" end_index="1" fixed_duration="false">9e9</rate>
+							<rate start_index="1" end_index="2" fixed_duration="true">1.15741e-5</rate>
+						</phase_transition_rates>
+						<parameters>
+							<unlysed_fluid_change_rate units="1/min">0.05</unlysed_fluid_change_rate>
+							<lysed_fluid_change_rate units="1/min">0</lysed_fluid_change_rate>
+							<cytoplasmic_biomass_change_rate units="1/min">1.66667e-02</cytoplasmic_biomass_change_rate>
+							<nuclear_biomass_change_rate units="1/min">5.83333e-03</nuclear_biomass_change_rate>
+							<calcification_rate units="1/min">0</calcification_rate>
+							<relative_rupture_volume units="dimensionless">2.0</relative_rupture_volume>
+						</parameters>
+					</model> 
+				</death>					
+
+				<volume>  
+					<total units="micron^3">2494</total>
+					<fluid_fraction units="dimensionless">0.75</fluid_fraction>
+					<nuclear units="micron^3">540</nuclear>
+					
+					<fluid_change_rate units="1/min">0.05</fluid_change_rate>
+					<cytoplasmic_biomass_change_rate units="1/min">0.0045</cytoplasmic_biomass_change_rate>
+					<nuclear_biomass_change_rate units="1/min">0.0055</nuclear_biomass_change_rate>
+					
+					<calcified_fraction units="dimensionless">0</calcified_fraction>
+					<calcification_rate units="1/min">0</calcification_rate>
+					
+					<relative_rupture_volume units="dimensionless">2.0</relative_rupture_volume>
+				</volume> 				
+				
+				<mechanics> 
+					<cell_cell_adhesion_strength units="micron/min">0.4</cell_cell_adhesion_strength>
+					<cell_cell_repulsion_strength units="micron/min">10.0</cell_cell_repulsion_strength>
+					<relative_maximum_adhesion_distance units="dimensionless">1.25</relative_maximum_adhesion_distance>
+					
+					<options>
+						<set_relative_equilibrium_distance enabled="false" units="dimensionless">1.8</set_relative_equilibrium_distance>
+						<set_absolute_equilibrium_distance enabled="false" units="micron">15.12</set_absolute_equilibrium_distance>
+					</options>
+				</mechanics>
+				
+				<motility>  
+					<speed units="micron/min">4</speed>
+					<persistence_time units="min">5</persistence_time>
+					<migration_bias units="dimensionless">0.7</migration_bias>
+					
+					<options>
+						<enabled>false</enabled>
+						<use_2D>true</use_2D>
+						<chemotaxis>
+							<enabled>false</enabled>
+							<substrate>ISF</substrate>
+							<direction>1</direction>
+						</chemotaxis>
+					</options>
+				</motility>
+
+				<secretion>	
+					<substrate name="pro-inflammatory cytokine">
+						<secretion_target units="dimensionless substrate concentration">1</secretion_target>
+					</substrate> 	
+					<substrate name="ISF">
+						<secretion_target units="dimensionless substrate concentration">1</secretion_target>
+					</substrate> 	
+					<substrate name="debris">
+						<secretion_target units="dimensionless substrate concentration">1</secretion_target>
+					</substrate>	
+					<substrate name="Ig">
+						<secretion_target units="dimensionless substrate concentration">1</secretion_target>
+					</substrate> 	
+						
+				</secretion>
+
+				<molecular />
+			</phenotype>
+			<custom_data>  
+				<!-- ACE2 receptor trafficking --> 
+				<unbound_external_ACE2 type="double" units="receptors"
+					description="initial number of unbound ACE2 receptors on surface">1000</unbound_external_ACE2>
+				<bound_external_ACE2 type="double" units="receptors"
+					description="initial number of bound ACE2 receptors on surface">0</bound_external_ACE2>
+				<unbound_internal_ACE2 type="double" units="receptors"
+					description="initial number of internalized unbound ACE2 receptors">0</unbound_internal_ACE2>
+				<bound_internal_ACE2 type="double" units="receptors"
+					description="initial number of internalized bound ACE2 receptors">0</bound_internal_ACE2>
+	
+				<ACE2_binding_rate type="double" units="1/min" 
+					description="ACE2 receptor-virus binding rate">0.0000001</ACE2_binding_rate> 
+				<ACE2_endocytosis_rate type="double" units="1/min" 
+					description="ACE2 receptor-virus endocytosis rate">0.01</ACE2_endocytosis_rate> 
+				<ACE2_cargo_release_rate type="double" units="1/min" 
+					description="ACE2 receptor-virus cargo release rate">0.01</ACE2_cargo_release_rate> 
+				<ACE2_recycling_rate type="double" units="1/min" 
+					description="ACE2 receptor recycling rate">0.01</ACE2_recycling_rate> 
+				
+				<!-- dead cell response --> 
+				<debris_secretion_rate units="1/min" type="double"
+					description="rate that dead cells release debris">1</debris_secretion_rate>
+					
+				<!-- for the immune model --> 
+				<TCell_detection type="double" units="protein"
+					description="protein value at which a T Cell can detect an infected cell">10</TCell_detection>
+				<TCell_contact_time type="double" units="min"
+					description="tracks total contact time with CD8 T cells">0.0</TCell_contact_time>
+				<cell_attachment_rate units="1/min" type="double"
+					description="the rate at which the cell attaches to cells in contact">0</cell_attachment_rate>
+				<cell_attachment_lifetime units="min" type="double"
+					description="the mean duration of a cell-cell attachment">0</cell_attachment_lifetime>
+				
+				<TCell_contact_death_threshold units="min" type="double"
+					description="threshold CD8 T cell contact time to trigger apoptosis">50</TCell_contact_death_threshold> <!-- 50 -->
+				<max_attachment_distance units="micron" type="double"
+					desription="max distance at which to form a cell-cell attachment">15</max_attachment_distance>
+				<elastic_attachment_coefficient units="1/min" type="double"
+					description="elastic coefficient for cell-cell attachment">0.01</elastic_attachment_coefficient>
+		<!-- (Adrianne) custom variables added for V4 -->
+				<!-- (Adrianne) add variable to track how long to next phagocytosis event for macrophages and neutrophils -->
+				<time_to_next_phagocytosis units="min" type="double"
+					description="time it takes for the apoptotic material to be phagocytosed">0</time_to_next_phagocytosis>
+				<!-- (Adrianne) add variable for how quickly material is internalised by macrophages/neutrophils, may eventually want this to relate to cell volume change -->
+				<material_internalisation_rate units="micron/min" type="double" 
+					desription="rate material is ingested by phagocyte">1</material_internalisation_rate>
+				<!-- (Adrianne) adding a threshold for the volume of macrophage. If volume exceeds this threshold the cell becomes "exhausted" and doesn't phagocytose, needs supporting reason for choice -->
+				<threshold_macrophage_volume units="micron" type="double" 
+					desription="Threshold volume for macrophage exhaustion">6500</threshold_macrophage_volume>
+
+				<!-- (adrianne) death rate of exhausted macrophages is 5x faster than death rate in activated macrophages, need a motivation for this death rate from the literature --> 
+				<exhausted_macrophage_death_rate units="1/min" type="double" 
+					desription="Threshold volume for neutrophil exhaustion">0.01</exhausted_macrophage_death_rate>
+				<!-- (adrianne) boolean parameter for whether macrophages has been activated by a T cell to be able to phagocytose infected cells --> 
+				<ability_to_phagocytose_infected_cell units="dimensionless" type="int"
+					description="Boolean for whether macrophages can phagocytose infected cells">0</ability_to_phagocytose_infected_cell>
+				<!-- (adrianne) time (mins) after DC activation when it will leave tissue, assigned uniform random variable at activation--> 
+				<time_of_DC_departure units="min" type="double"
+					description="Time DC leaves tissue after activation">0</time_of_DC_departure>
+<!--
+				<relative_maximum_volume units="dimensionless" type="double"
+					description="max tolerated volume (relative to normal volume) before triggering apoptosis">1.8</relative_maximum_volume>
+--> <!-- disable in v 3.2 -->
+
+				<!-- more immmune cell parameters  -->
+				<phagocytosis_rate units="1/min" type="double" 
+					desription="rate of phagocytosing a nearby target">0.167</phagocytosis_rate>
+				
+							
+				<phagocytosis_relative_target_cutoff_size unit="dimensionless" type="double"
+					desription="do not phagocytose anything over this size (relative to cell's volume)">1.1</phagocytosis_relative_target_cutoff_size>
+
+				<sensitivity_to_debris_chemotaxis units="dimensionless" type="double" 
+					description="relative sensitivity to debris in chemotaxis">1.0</sensitivity_to_debris_chemotaxis>
+				<sensitivity_to_immunostimulatory_chemotaxis units="dimensionless" type="double" 
+					description="relative sensitivity to ISF in chemotaxis">10.0</sensitivity_to_immunostimulatory_chemotaxis> 
+
+				<activated_speed units="micron/min" type="double" 
+					description="speed after activation">0.4</activated_speed>
+				<activated_cytokine_secretion_rate units="1/min" type="double" 
+					description="rate of secreting pro-inflamatory cytokine after activation">0.001</activated_cytokine_secretion_rate>
+
+				<activated_immune_cell units="dimensionless" type="double" 
+					description="used internally to track activation state">0.0</activated_immune_cell>
+					
+				<!-- tissue damage model -->
+				<antiinflammatory_cytokine_secretion_rate_by_macrophage units="1/min" type="double" 
+					description="secretion rate of anti-inflammatory from macrophage">0.07</antiinflammatory_cytokine_secretion_rate_by_macrophage>
+
+
+				<!-- your custom data and parameters go here (for new submodels) --> 
+				<!-- (AJ-V5) CD8/CD4 T cell generation model -->
+				<generation units="dimensionless" type="int"
+					description="cell proliferation generation">3</generation>
+
+
+				<uptaken_LNP units="LNP" type="double" desription="how many LNP are endocytosed in endosome">0</uptaken_LNP>
+				<free_LNP units="LNP" type="double" desription="how many LNP are free in cytoplasm (escape from endosome)">0</free_LNP>
+				<uncoated_LNP units="LNP" type="double" desription="how many LNP are uncoated">0</uncoated_LNP>
+				<mRNA units="mRNA" type="double" desription="how many mRNA are cytoplasm">0</mRNA>
+				<antigenic_epitope units="epitope" type="double" desription="how many epitope are translated">0</antigenic_epitope>
+
+			
+			</custom_data>
+		</cell_definition>
+		
+		<cell_definition name="lung epithelium" parent_type="default" ID="1">
+			<phenotype>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">0</death_rate> <!-- 5.31667e-05 --> 
+					</model> 
+				</death>
+				<motility>  
+					<options>
+						<enabled>false</enabled>
+					</options>
+				</motility>
+				<secretion>
+				</secretion>
+			</phenotype>
+			<custom_data>
+			</custom_data>
+		</cell_definition>
+
+		<!-- generic immune cell type --> 
+		<cell_definition name="immune" parent_type="default" ID="2">
+			<phenotype>
+				<mechanics> 
+					<cell_cell_adhesion_strength units="micron/min">0</cell_cell_adhesion_strength>
+					<cell_cell_repulsion_strength units="micron/min">10</cell_cell_repulsion_strength>
+				</mechanics>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">5e-4</death_rate> <!-- 5e-4 --> 
+					</model> 
+				</death>
+				<motility>  
+					<speed units="micron/min">4</speed>
+					<persistence_time units="min">5</persistence_time>
+					<migration_bias units="dimensionless">0.70</migration_bias>
+					<options>
+						<enabled>true</enabled>
+						<use_2D>true</use_2D>
+						<chemotaxis>
+							<enabled>true</enabled>
+							<substrate>ISF</substrate>
+							<direction>1</direction>
+						</chemotaxis>
+					</options>
+				</motility>
+
+				<secretion>
+					<substrate name="pro-inflammatory cytokine">
+						<uptake_rate units="1/min">0.01</uptake_rate>
+					</substrate> 	
+					<substrate name="ISF">
+						<uptake_rate units="1/min">0.01</uptake_rate>
+					</substrate> 	
+					<substrate name="debris">
+						<uptake_rate units="1/min">0.1</uptake_rate>
+					</substrate> 	
+				</secretion>
+
+			</phenotype>
+			<custom_data>
+			</custom_data>
+		</cell_definition>
+		
+		<cell_definition name="CD8 Tcell" parent_type="immune" ID="3">
+			<phenotype>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">2.8e-4</death_rate> 
+					</model> 
+				</death>			
+			
+				<motility>
+					<migration_bias units="dimensionless">0.70</migration_bias>
+					<options>
+						<enabled>true</enabled>
+						<use_2D>true</use_2D>
+						<chemotaxis>
+							<enabled>true</enabled>
+							<substrate>ISF</substrate>
+							<direction>1</direction>
+						</chemotaxis>
+					</options>
+				</motility>
+				<volume>
+					<total units="micron^3">478</total>
+					<nuclear units="micron^3">47.8</nuclear>
+				</volume>
+	
+				<secretion>
+					<substrate name="debris">
+						<uptake_rate units="1/min">0</uptake_rate>
+					</substrate> 	
+				</secretion>
+
+			</phenotype>
+			<custom_data>
+				<cell_attachment_rate units="1/min">0.2</cell_attachment_rate> <!-- 0.2 --> 
+				<cell_attachment_lifetime units="min">8.5</cell_attachment_lifetime> 
+			</custom_data>
+		</cell_definition>
+		
+		<cell_definition name="macrophage" parent_type="immune" ID="4">
+			<phenotype>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">2.1e-4</death_rate>  
+					</model> 
+				</death>
+				<motility>  
+					<migration_bias>0.7</migration_bias> 
+					<persistence_time>5</persistence_time>
+					<options>
+						<enabled>true</enabled>
+						<use_2D>true</use_2D>					
+						<chemotaxis>
+							<enabled>true</enabled>
+							<substrate>debris</substrate> 
+							<direction>1</direction>
+						</chemotaxis>
+					</options>
+				</motility>
+
+				<volume>
+					<total units="micron^3">4849</total>
+					<nuclear units="micron^3">485</nuclear>
+
+					<cytoplasmic_biomass_change_rate units="1/min">0.01</cytoplasmic_biomass_change_rate> 
+					<!-- set this higher so that cells "digest" phagocytosed materials faster -->
+				</volume>
+				
+				
+			</phenotype>
+			<custom_data>
+				<phagocytosis_rate units="1/min" type="double" 
+					desription="rate of phagocytosing a nearby target">0.167</phagocytosis_rate>
+				<sensitivity_to_debris_chemotaxis units="dimensionless" type="double" 
+					description="relative sensitivity to debris in chemotaxis">1.0</sensitivity_to_debris_chemotaxis>
+				<sensitivity_to_immunostimulatory_chemotaxis units="dimensionless" type="double" 
+					description="relative sensitivity to immunostimulatory in chemotaxis">10.0</sensitivity_to_immunostimulatory_chemotaxis> <!-- 1 -->
+
+				<activated_speed units="micron/min" type="double" 
+					description="speed after activation">0.4</activated_speed> <!-- 0.4 --> 
+				<activated_cytokine_secretion_rate units="1/min" type="double" 
+					description="rate of secreting pro-inflamatory cytokine after activation">1</activated_cytokine_secretion_rate>
+
+			</custom_data>
+		</cell_definition>		
+
+	<!-- (Adrianne) adding a new cell type: dendritic cells -->	
+		<cell_definition name="DC" parent_type="immune" ID="6">
+			<phenotype>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">8.9e-4</death_rate>  
+					</model> 
+				</death>
+				
+				<motility>  
+					<speed units="micron/min">2</speed>
+					<migration_bias>0.7</migration_bias>  
+					<persistence_time>5</persistence_time>
+					<options>
+						<enabled>true</enabled>
+						<use_2D>true</use_2D>					
+						<chemotaxis>
+							<enabled>true</enabled>
+							<substrate>ISF</substrate>  
+							<direction>1</direction>							
+						</chemotaxis>
+					</options>
+				</motility>
+
+				<secretion>
+				</secretion>
+
+				<volume>
+					<total units="micron^3">1767</total>
+					<nuclear units="micron^3">176.7</nuclear> <!-- not sure yet -->
+					
+					<cytoplasmic_biomass_change_rate units="1/min">0.045</cytoplasmic_biomass_change_rate> 
+					<!-- set this higher so that cells "digest" phagocytosed materials faster -->
+				</volume>
+			</phenotype>
+			<custom_data>
+				<!--uptaken_LNP units="LNP" type="double" desription="how many LNP are endocytosed">0</uptaken_LNP-->
+			</custom_data>
+		</cell_definition>
+		
+	<!-- (Adrianne) adding a new cell type: CD4 T cells -->	
+		<cell_definition name="CD4 Tcell" parent_type="immune" ID="7">
+			<phenotype>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">2.8e-4</death_rate> 
+					</model> 
+				</death>			
+			
+				<motility>
+					<migration_bias units="dimensionless">0.70</migration_bias>
+					<options>
+						<enabled>true</enabled>
+						<use_2D>true</use_2D>
+						<chemotaxis>
+							<enabled>true</enabled>
+							<substrate>ISF</substrate>
+							<direction>1</direction>
+						</chemotaxis>
+					</options>
+				</motility>
+				<volume>
+					<total units="micron^3">478</total>
+					<nuclear units="micron^3">47.8</nuclear>
+				</volume>
+	
+				<secretion>
+					<substrate name="debris">
+						<uptake_rate units="1/min">0</uptake_rate>
+					</substrate> 	
+				</secretion>
+
+			</phenotype>
+			<custom_data>
+			</custom_data>
+		</cell_definition>
+
+	<!-- B cells -->	
+		<cell_definition name="B cell" parent_type="immune" ID="9">
+			<phenotype>
+				<death>
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">2.8e-4</death_rate> 
+					</model> 
+				</death>			
+			
+				<motility>
+					<migration_bias units="dimensionless">0.70</migration_bias>
+					<options>
+						<enabled>true</enabled>
+						<use_2D>true</use_2D>
+						<chemotaxis>
+							<enabled>true</enabled>
+							<substrate>ISF</substrate>
+							<direction>1</direction>
+						</chemotaxis>
+					</options>
+				</motility>
+				<volume>
+					<total units="micron^3">478</total>
+					<nuclear units="micron^3">47.8</nuclear>
+				</volume>
+	
+				<secretion>
+					<substrate name="debris">
+						<uptake_rate units="1/min">0</uptake_rate>
+					</substrate> 	
+				</secretion>
+
+			</phenotype>
+			<custom_data>
+			</custom_data>
+		</cell_definition>
+
+
+		<!-- Tumor cells type --> 
+		<cell_definition name="tumor cell" parent_type="default" ID="10">
+			<phenotype>
+				<cycle code="5" name="live_cells_cycle_model">  
+					<phase_transition_rates units="1/min"> 	
+						<!-- use phase_transition_rates OR phase_durations -->
+						<rate start_index="0" end_index="0" fixed_duration="false">0.00072</rate>	<!-- 0.00072 -->
+					</phase_transition_rates>
+				</cycle>				
+				<death>  
+					<model code="100" name="apoptosis"> 
+						<death_rate units="1/min">5.31667e-05</death_rate>		<!-- 5.31667e-05 -->
+						<phase_durations units="min">
+							<rate start_index="0" end_index="1" fixed_duration="true">0.00193798</rate>
+						</phase_durations>
+					</model> 
+					<model code="101" name="necrosis">
+						<death_rate units="1/min">2.7777777777778</death_rate>	<!-- 0.0027777777777778 -->
+						<phase_transition_rates units="1/min">
+						    <rate start_index="0" end_index="1" fixed_duration="false">9e9</rate>
+							<rate start_index="1" end_index="2" fixed_duration="true">1.15741</rate> <!-- 1.15741e-5 -->
+						</phase_transition_rates>									
+					</model> 
+				</death>
+				<secretion>
+					<substrate name="oxygen">
+						<secretion_target units="mmHg">38</secretion_target>
+						<uptake_rate units="1/min">10</uptake_rate>
+					</substrate> 	
+				</secretion>					
+			</phenotype>
+		</cell_definition>
+		
+	</cell_definitions>
+	
+	
+	
+	<user_parameters>
+		<random_seed type="int" units="dimensionless">0</random_seed> 
+		<!-- example parameters from the template --> 
+		
+		<ignore_smoothing_flag type="int" units="dimensionless">1</ignore_smoothing_flag> 
+		
+		<div_immune type="divider" description="--Immune activation parameters--"/>
+			<immune_dt type="double" units="min" description="how often we check to introduce immune cells">10</immune_dt> 
+			
+			<immune_z_offset type="double" units="micron" 
+				description="immune cell position over the epithelium">0</immune_z_offset>
+
+			<macrophage_max_recruitment_rate type="double" units="cells/min/micron^3"
+				description="max macrophage recruitment rate (for saturated signal)">4e-9</macrophage_max_recruitment_rate> <!-- 4e-9 debug -->
+			<macrophage_recruitment_min_signal type="double" units="substrate/micron^3"
+				description="min concentration to attract macrophages">0.1</macrophage_recruitment_min_signal> <!--0.1 debug -->
+			<macrophage_recruitment_saturation_signal type="double" units="substrate/micron^3"
+				description="saturating concentration to attract macrophages">0.3</macrophage_recruitment_saturation_signal> <!-- 0.3 debug -->
+				
+			<DC_max_recruitment_rate type="double" units="cells/min/micron^3"
+				description="max DC recruitment rate (for saturated signal)">1e-9</DC_max_recruitment_rate> <!-- 4e-9 debug -->
+			<DC_recruitment_min_signal type="double" units="substrate/micron^3"
+				description="min concentration to attract DC">0.1</DC_recruitment_min_signal> <!--0.1 debug -->
+			<DC_recruitment_saturation_signal type="double" units="substrate/micron^3"
+				description="saturating concentration to attract DC">0.3</DC_recruitment_saturation_signal> <!-- 0.3 debug -->
+
+			<!-- (Michael) added parameters for external_immune-->
+			<TC_death_rate type="double" units="cells/min"
+				description="TC death rate">0.0000014</TC_death_rate>
+			<max_activation_TC type="double" units="cells/min"
+				description="max activation TC">0.003</max_activation_TC>
+			<half_max_activation_TC type="double" units="cells"
+				description="half max activation TC">2000</half_max_activation_TC>
+			<max_clearance_TC type="double" units="cells/min"
+				description="max clearance TC">0.0007</max_clearance_TC>
+			<half_max_clearance_TC type="double" units="cells"
+				description="half max clearance TC">200</half_max_clearance_TC>
+			<TC_population_threshold type="double" units="cells"
+				description="TC population threshold">10</TC_population_threshold>
+			<T_Cell_Recruitment type="double" units="cells/min"
+				description="T cell recruitment rate to tissue">0.0003</T_Cell_Recruitment>
+			<DM_decay type="double" units="cells/min"
+				description="DM decay rate">0.00035</DM_decay>
+			<Th1_max_activation type="double" units="cells/min"
+				description="Th1 max activation speed">0.0007</Th1_max_activation>
+			<Th1_damping type="double" units="cells/min"
+				description="Th1 damping factor">0.000015</Th1_damping>
+			<Th1_decay type="double" units="cells/min"
+				description="Th1 active decay rate">7e-7</Th1_decay>
+			<Th_base_decay type="double" units="cells/min"
+				description="Th base dacay rates">0.0000156</Th_base_decay>
+			<Th2_self_feeback type="double" units="cells/min"
+				description="Th2 max self feeback speed">0.000028</Th2_self_feeback>
+			<Th2_max_conversion type="double" units="cells/min"
+				description="Th2 max conversion speed">0.000002</Th2_max_conversion>
+			<Th1_Th2_conversion_wieght type="double" units="cells/min"
+				description="Th1 to Th2 conversion wieght">1</Th1_Th2_conversion_wieght>
+			<BCell_base_rate type="double" units="cells/min"
+				description="BCell basal rates">1.74e-6</BCell_base_rate>
+			<BCell_base_value type="double" units="cells/min"
+				description="BCell basal value">3000</BCell_base_value>
+			<BCell_DC_proliferation type="double" units="cells/min"
+				description="BCell DC influenced proliferation">0.0026</BCell_DC_proliferation>
+			<BCell_Th2_wieght_function type="double" units="cells/min"
+				description="BCell proliferation Th2 wieght function">6.6</BCell_Th2_wieght_function>
+			<BCell_damping type="double" units="cells/min"
+				description="BCell damping value">8800</BCell_damping>
+			<PCell_recuitment type="double" units="cells/min"
+				description="PCell recuitment rate">0.0002</PCell_recuitment>
+			<PCell_degradation type="double" units="cells/min"
+				description="PCell degradation rate">0.00014</PCell_degradation>
+			<Ig_recuitment type="double" units="cells/min"
+				description="Ig recuitment rate">0.005</Ig_recuitment>
+			<Ig_degradation type="double" units="cells/min"
+				description="Ig degradation rate">0.00139</Ig_degradation>
+			<DC_leave_prob type="double" units="cells/min"
+				description="probability of DC leaving to lymph node">0.0000033</DC_leave_prob>
+			<!-- (Michael) added parameters for external_immune-->
+		
+		<div_initialization type="divider" description="---Initialization Options--"/>
+			
+			<number_of_CD8_Tcells type="int" units="none" 
+				description="initial number of CD8 T cells in tissue">0</number_of_CD8_Tcells>
+			<number_of_macrophages type="int" units="none" 
+				description="initial number of macrophages">50</number_of_macrophages>
+
+		<!-- (Adrianne) initial number of DCs in the lung -->
+			<number_of_DCs type="int" units="none" 
+				description="initial number of Dendritic Cells">28</number_of_DCs> 
+		<!-- (Adrianne) initial number of CD4 T cells in the lung -->
+			<number_of_CD4_Tcells type="int" units="none" 
+				description="initial number of CD4 Tcells in tissue">0</number_of_CD4_Tcells> 
+		<!-- (Adrianne) New CD8 proliferation rate (G0G1 TO S PHASE) after interaction with DCS-->	
+			<DC_induced_CD8_proliferation type="double" units="cells/min/micron^3"
+				description="DC induced CD8 proliferation rate">0.00208</DC_induced_CD8_proliferation> <!-- currently an arbitrary choice -->
+		<!-- (Adrianne) New attachment rate of CD8s after interaction with DCS-->	
+			<DC_induced_CD8_attachment type="double" units="cells/min/micron^3"
+				description="DC induced CD8 attachement rate">0.6</DC_induced_CD8_attachment><!-- currently an arbitrary choice -->
+		<!-- (Adrianne) departure rate of DCs ** need to put Tarun's model value here -->
+			<departure_rate_of_DCs type="double" units="cells/min/micron^3"
+				description="Departure rate of activated DCs">0.001</departure_rate_of_DCs>
+		<!-- (Adrianne) number of virions in voxel to activate DC, chosen arbitrarily for now -->
+			<virions_needed_for_DC_activation type="int" units="virions"
+				descriptions="Number of virions needed to activate DC">10</virions_needed_for_DC_activation>
+		<!-- (Adrianne) multiple of the radii of the two immune cells interacting to check they are close enough-->		
+		<epsilon_distance type="double" units="dimensionless"
+				descriptions="Multiple of interaction distance for immune cells">1.75</epsilon_distance>
+				
+			<perecentage_tissue_vascularized units="percentage" type="double"
+				description="percentage of tissue sitting above blood vessels">8.8</perecentage_tissue_vascularized>			
+
+		<div_colors type="divider" description="---Cell Color Options--"/>
+			<color_variable type="string" description="color cells based on this variable">assembled_virion</color_variable>
+			
+			<epithelial_opacity type="double" description="opacity of epithelial cells">0.65</epithelial_opacity>
+			<non_epithelial_opacity type="double" description="opacity of non-epithelial cells">0.8</non_epithelial_opacity>
+			
+			<apoptotic_tumor_color type="string" 
+				description="apoptotic tumor cell color">black</apoptotic_tumor_color>
+			<apoptotic_immune_color type="string" 
+				description="apoptotic immune cell color">rosybrown</apoptotic_immune_color>
+				
+<!---			<lung_epithelium_color type="string" 
+				description="lung epithelium color">blue</lung_epithelium_color> -->
+			<CD8_Tcell_color type="string" 
+				description="CD8 T cell color">red</CD8_Tcell_color>
+			<CD4_Tcell_color type="string" 
+				description="CD4 T cell color">orange</CD4_Tcell_color>
+			<Macrophage_color type="string" 
+				description="macrophage color">rgb(35,139,69)</Macrophage_color>
+			<activated_macrophage_color type="string" 
+				description="color of activated macrophage">lime</activated_macrophage_color> <!-- old: fuschia -->
+		<!-- (Adrianne) added a macrophage exhaustion colouring - when macrophages have eaten above their threshold and are exhausted -->
+			<exhausted_macrophage_color type="string" 
+				description="color of exhausted macrophage">rgb(116,196,118)</exhausted_macrophage_color><!-- old: purple -->
+		<!-- (Adrianne) added a macrophage hyperactived colouring - when macrophages have interacted with T cell and beoome hyperactivated and can kill infected cells -->
+			<hyperactivated_macrophage_color type="string" 
+				description="color of hyperactivated macrophage">rgb(168,221,181)</hyperactivated_macrophage_color><!--old: paleturquoise -->
+		<!-- (Adrianne) adding DC color for naive and active  -->
+			<DC_color type="string" 
+				description="DC color">rgb(129,15,124)</DC_color>
+			<activated_DC_color type="string" 
+				description="DC color">deeppink</activated_DC_color>
+				
+		<!-- (Adrianne V5)  Rate that neutrophils and macs uptake virus, needs to be determined from literature-->
+			<phagocytes_virus_uptake_rate type="double" units="none"
+				description="Rate that phagocytes uptake virus after activation">0.0001</phagocytes_virus_uptake_rate>
+		
+				
+		<!-- (Adrianne V5) Antibody binding rate and half effect-->
+			<Antibody_binding_rate type="double" units="none"
+				description="Binding rate of antibody to infected cells">0.1</Antibody_binding_rate>
+		
+			<antibody_half_effect type="double" units="none"
+				description="Half effect of antibody on macrophage phagocytosis">0.1</antibody_half_effect>
+
+
+		<!-- new project- mRNA vaccine !!!!!!!!!!-->
+
+			<LNP_fraction_released_at_death type="double" units="none" description="fraction of LNP released at cell death">0</LNP_fraction_released_at_death>
+
+			<tumor_radius type="double" units="micron" description="Initial tumor radius">350</tumor_radius>
+			<LNP_escape_rate units="1/min" type="double" desription="Rate that endocytosed LNP escape from endosome">0.01</LNP_escape_rate>
+			<uncoated_LNP_rate units="1/min" type="double" desription="Rate that LNP are uncoated">0.01</uncoated_LNP_rate>
+			<epitope_translation_rate units="1/min" type="double" desription="Rate that antigenic epitope are translated">0.01</epitope_translation_rate>
+			<epitope_export_rate units="1/min" type="double" desription="Rate that epitope are exported from DC cell">0.01</epitope_export_rate>
+
+	
+		
+	</user_parameters>
+	
+</PhysiCell_settings>
+
+
+
+
